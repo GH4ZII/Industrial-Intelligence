@@ -1,0 +1,52 @@
+# Project planning (local only)
+project-plan.md
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Build & output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.turbo/
+coverage/
+*.egg-info/
+.cache/
+
+# IDE & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# OS
+Desktop.ini
+$RECYCLE.BIN/
