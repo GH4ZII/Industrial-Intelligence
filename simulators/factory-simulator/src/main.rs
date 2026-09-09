@@ -2,26 +2,24 @@ mod assets;
 mod factory;
 
 use factory::Factory;
-use std::time::Duration;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
+use std::time::Duration;
 use tokio::time;
 
 #[tokio::main]
 async fn main() {
-    // 1. Opprett fabrikken
     let mut factory = Factory::new();
 
-    // 2. MQTT-konfigurasjon
+    // MQTT
     let mut mqtt_options =
         MqttOptions::new("factory-simulator", "localhost", 1883);
 
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
-    // 3. Opprett MQTT-client
     let (mqtt_client, mut eventloop) =
         AsyncClient::new(mqtt_options, 10);
 
-    // 4. Start MQTT event loop
+    // MQTT event loop
     tokio::spawn(async move {
         loop {
             match eventloop.poll().await {
@@ -35,26 +33,69 @@ async fn main() {
         }
     });
 
-    // 5. Kjør fabrikken kontinuerlig
+    // Factory simulation
     loop {
         factory.tick();
 
-        let json = factory.to_json();
+        // Gjør hver maskin om til JSON
+        let pump_json =
+            serde_json::to_string(factory.pump()).unwrap();
 
-        println!("{}\n", json);
+        let motor_json =
+            serde_json::to_string(factory.motor()).unwrap();
 
-        // 6. Publiser fabrikkdata til MQTT
+        let tank_json =
+            serde_json::to_string(factory.tank()).unwrap();
+
+        let valve_json =
+            serde_json::to_string(factory.valve()).unwrap();
+
+        // Pumpe
         mqtt_client
             .publish(
-                "factory/trondheim/telemetry",
+                "factory/trondheim/pump/P101/telemetry",
                 QoS::AtLeastOnce,
                 false,
-                json,
+                pump_json,
             )
             .await
-            .unwrap();
+            .expect("Failed to publish pump");
 
-        // 7. Vent ett sekund
+        // Motor
+        mqtt_client
+            .publish(
+                "factory/trondheim/motor/M201/telemetry",
+                QoS::AtLeastOnce,
+                false,
+                motor_json,
+            )
+            .await
+            .expect("Failed to publish motor");
+
+        // Tank
+        mqtt_client
+            .publish(
+                "factory/trondheim/tank/T301/telemetry",
+                QoS::AtLeastOnce,
+                false,
+                tank_json,
+            )
+            .await
+            .expect("Failed to publish tank");
+
+        // Valve
+        mqtt_client
+            .publish(
+                "factory/trondheim/valve/V401/telemetry",
+                QoS::AtLeastOnce,
+                false,
+                valve_json,
+            )
+            .await
+            .expect("Failed to publish valve");
+
+        println!("Published factory telemetry");
+
         time::sleep(Duration::from_secs(1)).await;
     }
 }

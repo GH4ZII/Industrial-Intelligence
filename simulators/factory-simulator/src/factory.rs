@@ -3,20 +3,36 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct Factory {
-    pub pump: Pump,
-    pub motor: Motor,
-    pub tank: Tank,
-    pub valve: Valve,
+    pump: Pump,
+    motor: Motor,
+    tank: Tank,
+    valve: Valve,
 }
 
 impl Factory {
     pub fn new() -> Self {
         Self {
-            pump: Pump::new("P-101"),
-            motor: Motor::new("M-101"),
-            tank: Tank::new("T-101"),
-            valve: Valve::new("V-101"),
+            pump: Pump::new("P101"),
+            motor: Motor::new("M201"),
+            tank: Tank::new("T301"),
+            valve: Valve::new("V401"),
         }
+    }
+
+    pub fn pump(&self) -> &Pump {
+        &self.pump
+    }
+
+    pub fn motor(&self) -> &Motor {
+        &self.motor
+    }
+
+    pub fn tank(&self) -> &Tank {
+        &self.tank
+    }
+
+    pub fn valve(&self) -> &Valve {
+        &self.valve
     }
 
     pub fn tick(&mut self) {
