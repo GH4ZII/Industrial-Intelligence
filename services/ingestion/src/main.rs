@@ -2,6 +2,7 @@ use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use serde::Deserialize;
 use std::time::Duration;
 use tokio::time;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
 
 #[derive(Debug, Deserialize)]
@@ -46,10 +47,59 @@ struct ValveTelemetry {
     position: f64,
 }
 
+async fn insert_metric(
+    pool: &PgPool,
+    site: &str,
+    asset_type: &str,
+    asset_id: &str,
+    metric: &str,
+    value: f64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO telemetry (
+            time,
+            site,
+            asset_type,
+            asset_id,
+            metric,
+            value
+        )
+        VALUES (
+            NOW(),
+            $1,
+            $2,
+            $3,
+            $4,
+            $5
+        )
+        "#,
+    )
+    .bind(site)
+    .bind(asset_type)
+    .bind(asset_id)
+    .bind(metric)
+    .bind(value)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() {
     println!("Starting Industrial Intelligence Ingestion Service...");
+
+    let database_url =
+    "postgres://industrial:industrial123@localhost:5432/industrial_intelligence";
+
+let pool = PgPoolOptions::new()
+    .max_connections(5)
+    .connect(database_url)
+    .await
+    .expect("Failed to connect to TimescaleDB");
+
+println!("Connected to TimescaleDB.");
 
     let mut mqtt_options =
         MqttOptions::new("ingestion-service", "localhost", 1883);
@@ -119,12 +169,64 @@ async fn main() {
                         match serde_json::from_str::<PumpTelemetry>(&payload) {
 
                             Ok(data) => {
-                                println!("State: {}", data.state);
-                                println!("Temperature: {:.2} °C", data.temperature);
-                                println!("RPM: {:.2}", data.rpm);
-                                println!("Vibration: {:.2} mm/s", data.vibration);
-                                println!("Pressure: {:.2} bar", data.pressure);
-                                println!("Power: {:.2} kW", data.power);
+                                println!("Received telemetry from {}", data.id);
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "temperature",
+                                    data.temperature,
+                                )
+                                .await
+                                .expect("Failed to insert temperature");
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "rpm",
+                                    data.rpm,
+                                )
+                                .await
+                                .expect("Failed to insert RPM");
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "vibration",
+                                    data.vibration,
+                                )
+                                .await
+                                .expect("Failed to insert vibration");
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "pressure",
+                                    data.pressure,
+                                )
+                                .await
+                                .expect("Failed to insert pressure");
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "power",
+                                    data.power,
+                                )
+                                .await
+                                .expect("Failed to insert power");
+                            
+                                println!("Stored P101 telemetry in TimescaleDB.");
                             }
 
                             Err(error) => {
@@ -142,11 +244,51 @@ async fn main() {
                         match serde_json::from_str::<MotorTelemetry>(&payload) {
 
                             Ok(data) => {
-                                println!("State: {}", data.state);
-                                println!("Temperature: {:.2} °C", data.temperature);
-                                println!("RPM: {:.2}", data.rpm);
-                                println!("Current: {:.2} A", data.current);
-                                println!("Vibration: {:.2} mm/s", data.vibration);
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "temperature",
+                                    data.temperature,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "rpm",
+                                    data.rpm,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "current",
+                                    data.current,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "vibration",
+                                    data.vibration,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                println!("Stored M201 telemetry in TimescaleDB.");
                             }
 
                             Err(error) => {
@@ -164,10 +306,40 @@ async fn main() {
                         match serde_json::from_str::<TankTelemetry>(&payload) {
 
                             Ok(data) => {
-                                println!("State: {}", data.state);
-                                println!("Level: {:.2} %", data.level);
-                                println!("Temperature: {:.2} °C", data.temperature);
-                                println!("Pressure: {:.2} bar", data.pressure);
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "level",
+                                    data.level,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "temperature",
+                                    data.temperature,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "pressure",
+                                    data.pressure,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                println!("Stored T301 telemetry in TimescaleDB.");
                             }
 
                             Err(error) => {
@@ -185,10 +357,40 @@ async fn main() {
                         match serde_json::from_str::<ValveTelemetry>(&payload) {
 
                             Ok(data) => {
-                                println!("State: {}", data.state);
-                                println!("Open: {}", data.open);
-                                println!("Flow: {:.2}", data.flow);
-                                println!("Position: {:.2} %", data.position);
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "flow",
+                                    data.flow,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "position",
+                                    data.position,
+                                )
+                                .await
+                                .unwrap();
+                            
+                                insert_metric(
+                                    &pool,
+                                    site,
+                                    asset_type,
+                                    asset_id,
+                                    "open",
+                                    if data.open { 1.0 } else { 0.0 },
+                                )
+                                .await
+                                .unwrap();
+                            
+                                println!("Stored V401 telemetry in TimescaleDB.");
                             }
 
                             Err(error) => {

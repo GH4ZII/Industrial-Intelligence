@@ -1,0 +1,14 @@
+C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\deps\serde-d250bf3c68abfba5.d: C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\build\serde-3d3c28a270662e76\out/private.rs
+
+C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\deps\libserde-d250bf3c68abfba5.rlib: C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\build\serde-3d3c28a270662e76\out/private.rs
+
+C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\deps\libserde-d250bf3c68abfba5.rmeta: C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\build\serde-3d3c28a270662e76\out/private.rs
+
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\ghaaz\Industrial-Intelligence\services\ingestion\target\debug\build\serde-3d3c28a270662e76\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\ghaaz\\Industrial-Intelligence\\services\\ingestion\\target\\debug\\build\\serde-3d3c28a270662e76\\out
