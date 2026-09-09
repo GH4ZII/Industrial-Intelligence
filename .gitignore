@@ -19,6 +19,7 @@ __pycache__/
 *.pem
 *.key
 credentials.json
+credentials.md
 secrets.json
 
 # Build & output

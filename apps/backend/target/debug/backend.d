@@ -1,1 +1,1 @@
-C:\Users\ghaaz\Industrial-Intelligence\apps\backend\target\debug\backend.exe: C:\Users\ghaaz\Industrial-Intelligence\apps\backend\src\main.rs
+C:\Users\ghaaz\Industrial-Intelligence\apps\backend\target\debug\backend.exe: C:\Users\ghaaz\Industrial-Intelligence\apps\backend\src\auth.rs C:\Users\ghaaz\Industrial-Intelligence\apps\backend\src\main.rs C:\Users\ghaaz\Industrial-Intelligence\apps\backend\src\models.rs C:\Users\ghaaz\Industrial-Intelligence\apps\backend\src\routes.rs

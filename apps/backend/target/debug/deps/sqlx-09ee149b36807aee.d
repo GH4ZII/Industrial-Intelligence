@@ -1,0 +1,12 @@
+C:\Users\ghaaz\Industrial-Intelligence\apps\backend\target\debug\deps\sqlx-09ee149b36807aee.d: C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\ty_match.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\spec_error.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.md C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros/test.md C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\install_drivers_note.md
+
+C:\Users\ghaaz\Industrial-Intelligence\apps\backend\target\debug\deps\libsqlx-09ee149b36807aee.rmeta: C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros\mod.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\ty_match.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\spec_error.rs C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.md C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros/test.md C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\install_drivers_note.md
+
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\mod.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros\mod.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\ty_match.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\spec_error.rs:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\lib.md:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\macros/test.md:
+C:\Users\ghaaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\sqlx-0.9.0\src\any\install_drivers_note.md:
