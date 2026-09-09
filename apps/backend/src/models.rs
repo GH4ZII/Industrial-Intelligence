@@ -19,10 +19,25 @@ pub struct SiteSummary {
 
 
 #[derive(Debug, Serialize, FromRow)]
+pub struct AssetRow {
+    pub site: String,
+    pub asset_type: String,
+    pub asset_id: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct AssetSummary {
     pub site: String,
     pub asset_type: String,
     pub asset_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardSummary {
+    pub plant_health_percent: u32,
+    pub active_alerts: i64,
+    pub assets: Vec<AssetSummary>,
 }
 
 

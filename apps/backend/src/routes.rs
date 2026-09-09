@@ -10,7 +10,9 @@ use crate::{
     models::{
         AlertRow,
         AssetDetail,
+        AssetRow,
         AssetSummary,
+        DashboardSummary,
         HealthResponse,
         IncidentRow,
         SiteSummary,
@@ -18,6 +20,61 @@ use crate::{
     },
     AppState,
 };
+
+fn status_from_metrics(latest: &BTreeMap<String, f64>) -> String {
+    let mut status = "NORMAL";
+
+    if let Some(&temperature) = latest.get("temperature") {
+        if temperature > 110.0 {
+            return "CRITICAL".to_string();
+        }
+        if temperature > 90.0 {
+            status = "WARNING";
+        }
+    }
+
+    if let Some(&vibration) = latest.get("vibration") {
+        if vibration > 9.0 {
+            return "CRITICAL".to_string();
+        }
+        if vibration > 5.0 {
+            status = "WARNING";
+        }
+    }
+
+    status.to_string()
+}
+
+async fn latest_metrics_for_asset(
+    pool: &sqlx::PgPool,
+    asset_id: &str,
+) -> Result<BTreeMap<String, f64>, (StatusCode, String)> {
+    let rows = sqlx::query_as::<_, TelemetryRow>(
+        r#"
+        SELECT DISTINCT ON (metric)
+            time,
+            site,
+            asset_type,
+            asset_id,
+            metric,
+            value
+        FROM telemetry
+        WHERE asset_id = $1
+        ORDER BY metric, time DESC
+        "#,
+    )
+    .bind(asset_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let mut latest = BTreeMap::new();
+    for row in rows {
+        latest.insert(row.metric, row.value);
+    }
+
+    Ok(latest)
+}
 
 
 pub async fn health() -> Json<HealthResponse> {
@@ -52,8 +109,83 @@ pub async fn get_sites(
 pub async fn get_assets(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<AssetSummary>>, (StatusCode, String)> {
+    Ok(Json(load_assets_with_status(&state).await?))
+}
 
-    let assets = sqlx::query_as::<_, AssetSummary>(
+pub async fn get_dashboard(
+    State(state): State<AppState>,
+) -> Result<Json<DashboardSummary>, (StatusCode, String)> {
+    let assets = load_assets_with_status(&state).await?;
+
+    let healthy = assets
+        .iter()
+        .filter(|asset| asset.status == "NORMAL")
+        .count();
+
+    let plant_health_percent = if assets.is_empty() {
+        100
+    } else {
+        ((healthy as f64 / assets.len() as f64) * 100.0).round() as u32
+    };
+
+    let active_alerts: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)::BIGINT
+        FROM alerts
+        WHERE acknowledged = false
+        "#,
+    )
+    .fetch_one(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    // Until alarm engine fills alerts, count non-NORMAL assets as active issues.
+    let active_alerts = if active_alerts.0 > 0 {
+        active_alerts.0
+    } else {
+        assets
+            .iter()
+            .filter(|asset| asset.status != "NORMAL")
+            .count() as i64
+    };
+
+    Ok(Json(DashboardSummary {
+        plant_health_percent,
+        active_alerts,
+        assets,
+    }))
+}
+
+pub async fn get_alerts(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<AlertRow>>, (StatusCode, String)> {
+    let alerts = sqlx::query_as::<_, AlertRow>(
+        r#"
+        SELECT
+            id,
+            time,
+            site,
+            asset_id,
+            severity,
+            alert_type,
+            message,
+            acknowledged
+        FROM alerts
+        WHERE acknowledged = false
+        ORDER BY time DESC
+        "#,
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(Json(alerts))
+}
+
+async fn load_assets_with_status(
+    state: &AppState,
+) -> Result<Vec<AssetSummary>, (StatusCode, String)> {
+    let rows = sqlx::query_as::<_, AssetRow>(
         r#"
         SELECT DISTINCT
             site,
@@ -67,7 +199,21 @@ pub async fn get_assets(
     .await
     .map_err(internal_error)?;
 
-    Ok(Json(assets))
+    let mut assets = Vec::with_capacity(rows.len());
+
+    for row in rows {
+        let latest = latest_metrics_for_asset(&state.pool, &row.asset_id).await?;
+        let status = status_from_metrics(&latest);
+
+        assets.push(AssetSummary {
+            site: row.site,
+            asset_type: row.asset_type,
+            asset_id: row.asset_id,
+            status,
+        });
+    }
+
+    Ok(assets)
 }
 
 

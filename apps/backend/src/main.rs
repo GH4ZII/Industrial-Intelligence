@@ -18,6 +18,11 @@ pub struct AppState {
     pub pool: PgPool,
 }
 
+use tower_http::cors::{
+    Any,
+    CorsLayer,
+};
+
 
 #[tokio::main]
 async fn main() {
@@ -61,6 +66,18 @@ async fn main() {
         .route(
             "/api/sites",
             get(routes::get_sites),
+        )
+
+        // Dashboard
+        .route(
+            "/api/dashboard",
+            get(routes::get_dashboard),
+        )
+
+        // Alerts
+        .route(
+            "/api/alerts",
+            get(routes::get_alerts),
         )
 
         // Assets
@@ -117,7 +134,13 @@ async fn main() {
             get(auth::get_roles),
         )
 
-        .with_state(state);
+        .with_state(state)
+
+        .layer(CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+        );
 
 
     let listener =
