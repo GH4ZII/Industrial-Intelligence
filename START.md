@@ -139,6 +139,29 @@ SELECT * FROM telemetry ORDER BY time DESC LIMIT 20;
 
 ---
 
+## 6. Alarm Engine (valgfritt)
+
+Sjekker temperatur > 90 °C og skriver WARNING til `alerts`.
+
+```powershell
+cd services\alerts
+cargo run
+```
+
+Forventet når en maskin er for varm:
+
+```text
+ALERT P101 WARNING — 104.2 °C @ ...
+```
+
+Verifiser:
+
+```sql
+SELECT * FROM alerts ORDER BY time DESC LIMIT 10;
+```
+
+---
+
 ## Hurtigstart (containere allerede opprettet)
 
 Hvis `industrial-mqtt` og `industrial-timescaledb` finnes fra før:

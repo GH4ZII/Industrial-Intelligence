@@ -23,6 +23,7 @@ credentials.md
 secrets.json
 
 # Build & output
+target/
 dist/
 build/
 out/
