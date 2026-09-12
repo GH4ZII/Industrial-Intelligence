@@ -1,5 +1,29 @@
 # Oppstart – Industrial Intelligence
 
+## Hurtigstart (anbefalt)
+
+Fra repo-roten:
+
+```powershell
+.\start-all.ps1
+```
+
+Starter MQTT, TimescaleDB, ingestion, factory-simulator, alerts, backend og frontend i egne vinduer.
+
+Stopp:
+
+```powershell
+.\stop-all.ps1
+```
+
+Dashboard: http://localhost:3001
+
+**Krav:** Docker Desktop kjører. Lokal Windows-Postgres på port `5432` må være stoppet (admin-PowerShell: `Stop-Service postgresql-x64-17`).
+
+---
+
+## Manuell oppstart
+
 Kjør tingene i denne rekkefølgen. Hver del må være oppe før neste.
 
 ```text
@@ -8,6 +32,9 @@ Docker Desktop
     → TimescaleDB
     → Ingestion-service
     → Factory-simulator
+    → Alarm Engine
+    → Backend
+    → Frontend
 ```
 
 ---
@@ -16,16 +43,29 @@ Docker Desktop
 
 - Docker Desktop kjører
 - Rust / Cargo er installert
+- Node.js / npm er installert (frontend)
 - Lokal Windows-Postgres på port `5432` er **stopp**et (ellers treffer ingestion feil database)
 
 ```powershell
 Get-Service *postgres*
-Stop-Service postgresql-x64-17   # bruk eksakt navn fra lista
+Stop-Service postgresql-x64-17   # bruk eksakt navn fra lista (krever admin)
+```
+
+Eller med Docker Compose:
+
+```powershell
+docker compose up -d
 ```
 
 ---
 
 ## 1. MQTT-broker (Mosquitto)
+
+```powershell
+docker compose up -d mqtt
+```
+
+Alternativ uten Compose:
 
 ```powershell
 docker rm -f industrial-mqtt 2>$null
@@ -43,6 +83,14 @@ docker ps --filter name=industrial-mqtt
 ## 2. TimescaleDB
 
 ```powershell
+docker compose up -d timescaledb
+```
+
+Første gang opprettes tabeller automatisk via `infrastructure/docker/init.sql`.
+
+Alternativ uten Compose:
+
+```powershell
 docker rm -f industrial-timescaledb 2>$null
 docker run -d --name industrial-timescaledb `
   -e POSTGRES_USER=industrial `
@@ -58,7 +106,7 @@ Sjekk:
 docker ps --filter name=industrial-timescaledb
 ```
 
-### Første gang: lag tabell
+### Manuell tabell-opprettelse (kun hvis volume allerede finnes uten schema)
 
 ```powershell
 docker exec -it industrial-timescaledb psql -U industrial -d industrial_intelligence
@@ -182,6 +230,24 @@ SELECT * FROM alerts ORDER BY time DESC LIMIT 10;
 
 ---
 
+## 7. Backend + Frontend
+
+```powershell
+cd apps\backend
+cargo run
+```
+
+```powershell
+cd apps\frontend
+npm run dev
+```
+
+Åpne http://localhost:3001
+
+Backend må kjøre på port 3000 (frontend henter data derfra).
+
+---
+
 ## Hurtigstart (containere allerede opprettet)
 
 Hvis `industrial-mqtt` og `industrial-timescaledb` finnes fra før:
@@ -190,26 +256,26 @@ Hvis `industrial-mqtt` og `industrial-timescaledb` finnes fra før:
 docker start industrial-mqtt industrial-timescaledb
 ```
 
-Deretter, i to separate terminaler:
+Eller:
 
 ```powershell
-cd services\ingestion
-cargo run
+docker compose start
 ```
 
-```powershell
-cd simulators\factory-simulator
-cargo run
-```
+Deretter, i separate terminaler — eller bare `.\start-all.ps1`.
 
 ---
 
 ## Stopp
 
-`Ctrl+C` i terminalene for ingestion og simulator.
+`Ctrl+C` i terminalene, eller:
 
 ```powershell
-docker stop industrial-mqtt industrial-timescaledb
+.\stop-all.ps1
+```
+
+```powershell
+docker compose stop
 ```
 
 ---
@@ -218,6 +284,8 @@ docker stop industrial-mqtt industrial-timescaledb
 
 | Tjeneste     | Host        | Port |
 | ------------ | ----------- | ---- |
+| Frontend     | `localhost` | 3001 |
+| Backend      | `localhost` | 3000 |
 | MQTT         | `localhost` | 1883 |
 | TimescaleDB  | `localhost` | 5432 |
 
@@ -227,7 +295,7 @@ docker stop industrial-mqtt industrial-timescaledb
 | Password | `industrial123`           |
 | Database | `industrial_intelligence` |
 
-Connection string (hardkodet i ingestion):
+Connection string:
 
 ```text
 postgres://industrial:industrial123@localhost:5432/industrial_intelligence

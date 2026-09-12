@@ -90,7 +90,13 @@ git clone https://github.com/<org>/Industrial-Intelligence.git
 cd Industrial-Intelligence
 ```
 
-Oppsettsinstruksjoner kommer når første tjenester er på plass.
+På Windows (PowerShell), start hele stakken:
+
+```powershell
+.\start-all.ps1
+```
+
+Dashboard: http://localhost:3001 — stopp med `.\stop-all.ps1`. Se `START.md` for detaljer.
 
 ## Merknad
 
