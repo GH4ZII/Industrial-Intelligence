@@ -103,6 +103,7 @@ Start-Sleep -Seconds 2
 Start-AppWindow "factory-simulator" (Join-Path $Root "simulators\factory-simulator") "cargo run"
 Start-Sleep -Seconds 1
 Start-AppWindow "alerts" (Join-Path $Root "services\alerts") "cargo run"
+Start-AppWindow "security-monitor" (Join-Path $Root "services\security-monitor") "cargo run -- --demo"
 Start-AppWindow "backend" (Join-Path $Root "apps\backend") "cargo run"
 Start-AppWindow "frontend" (Join-Path $Root "apps\frontend") "npx next dev --port 3001"
 

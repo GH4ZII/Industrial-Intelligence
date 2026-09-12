@@ -60,3 +60,22 @@ CREATE TABLE IF NOT EXISTS incidents (
 );
 
 CREATE INDEX IF NOT EXISTS idx_incidents_created ON incidents (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS network_events (
+    id                   BIGSERIAL PRIMARY KEY,
+    time                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    source_ip            TEXT NOT NULL,
+    destination_ip       TEXT NOT NULL,
+    source_port          INTEGER NOT NULL,
+    destination_port     INTEGER NOT NULL,
+    transport_protocol   TEXT NOT NULL,
+    application_protocol TEXT,
+    payload_size         INTEGER NOT NULL,
+    modbus_function      TEXT,
+    opcua_message        TEXT,
+    suspicious           BOOLEAN NOT NULL DEFAULT FALSE,
+    severity             TEXT,
+    message              TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_network_events_time ON network_events (time DESC);

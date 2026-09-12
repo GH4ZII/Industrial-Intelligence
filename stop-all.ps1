@@ -10,6 +10,7 @@ $titles = @(
     "ingestion",
     "factory-simulator",
     "alerts",
+    "security-monitor",
     "backend",
     "frontend"
 )

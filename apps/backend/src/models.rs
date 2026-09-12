@@ -85,6 +85,24 @@ pub struct IncidentRow {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Serialize, FromRow)]
+pub struct NetworkEventRow {
+    pub id: i64,
+    pub time: DateTime<Utc>,
+    pub source_ip: String,
+    pub destination_ip: String,
+    pub source_port: i32,
+    pub destination_port: i32,
+    pub transport_protocol: String,
+    pub application_protocol: Option<String>,
+    pub payload_size: i32,
+    pub modbus_function: Option<String>,
+    pub opcua_message: Option<String>,
+    pub suspicious: bool,
+    pub severity: Option<String>,
+    pub message: Option<String>,
+}
+
 
 #[derive(Debug, Serialize, FromRow)]
 pub struct UserPublic {

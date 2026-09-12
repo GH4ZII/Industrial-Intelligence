@@ -104,3 +104,34 @@ export async function getAlerts(): Promise<Alert[]> {
 
   return response.json();
 }
+
+export interface NetworkEvent {
+  id: number;
+  time: string;
+  source_ip: string;
+  destination_ip: string;
+  source_port: number;
+  destination_port: number;
+  transport_protocol: string;
+  application_protocol: string | null;
+  payload_size: number;
+  modbus_function: string | null;
+  opcua_message: string | null;
+  suspicious: boolean;
+  severity: string | null;
+  message: string | null;
+}
+
+export async function getSecurityEvents(): Promise<NetworkEvent[]> {
+  const response = await fetch(`${API_URL}/api/security/events`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    // Table may not exist until security-monitor has run once
+    return [];
+  }
+
+  return response.json();
+}
+

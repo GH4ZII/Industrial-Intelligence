@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { getDashboard } from "@/lib/api";
+import { getDashboard, getSecurityEvents } from "@/lib/api";
 
 function statusClass(status: string) {
   switch (status) {
     case "CRITICAL":
+    case "HIGH":
       return "text-red-400";
     case "WARNING":
+    case "MEDIUM":
       return "text-amber-400";
     default:
       return "text-emerald-400";
@@ -13,7 +15,12 @@ function statusClass(status: string) {
 }
 
 export default async function Home() {
-  const dashboard = await getDashboard();
+  const [dashboard, securityEvents] = await Promise.all([
+    getDashboard(),
+    getSecurityEvents(),
+  ]);
+
+  const suspicious = securityEvents.filter((e) => e.suspicious).slice(0, 5);
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white p-8">
@@ -38,7 +45,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section>
+        <section className="mb-10">
           <h2 className="text-xl font-semibold mb-4">Machines</h2>
 
           <div className="space-y-3">
@@ -58,12 +65,60 @@ export default async function Home() {
                   <p className="text-neutral-500 text-sm">{asset.site}</p>
                 </div>
 
-                <span className={`text-sm font-semibold ${statusClass(asset.status)}`}>
+                <span
+                  className={`text-sm font-semibold ${statusClass(asset.status)}`}
+                >
                   {asset.status}
                 </span>
               </Link>
             ))}
           </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-4">OT Security Events</h2>
+
+          {suspicious.length === 0 ? (
+            <p className="text-neutral-500">
+              No suspicious Modbus/OPC UA events yet. Run{" "}
+              <code className="text-neutral-300">
+                cargo run -- --demo
+              </code>{" "}
+              in security-monitor.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {suspicious.map((event) => (
+                <div
+                  key={event.id}
+                  className="border border-neutral-800 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold">
+                      {event.message ?? "Security event"}
+                    </p>
+                    <span
+                      className={`text-sm font-semibold ${statusClass(
+                        event.severity ?? "HIGH"
+                      )}`}
+                    >
+                      {event.severity ?? "HIGH"}
+                    </span>
+                  </div>
+                  <p className="text-neutral-400 text-sm mt-2">
+                    {event.source_ip} → {event.destination_ip}:
+                    {event.destination_port}
+                    {event.modbus_function
+                      ? ` · ${event.modbus_function}`
+                      : ""}
+                    {event.opcua_message
+                      ? ` · OPC UA ${event.opcua_message}`
+                      : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

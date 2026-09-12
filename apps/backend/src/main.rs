@@ -107,6 +107,12 @@ async fn main() {
             get(routes::get_incidents),
         )
 
+        // OT Security / network events
+        .route(
+            "/api/security/events",
+            get(routes::get_network_events),
+        )
+
         // Authentication
         .route(
             "/api/auth/register",

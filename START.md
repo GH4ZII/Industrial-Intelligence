@@ -33,6 +33,7 @@ Docker Desktop
     → Ingestion-service
     → Factory-simulator
     → Alarm Engine
+    → OT Security Monitor
     → Backend
     → Frontend
 ```
@@ -230,7 +231,28 @@ SELECT * FROM alerts ORDER BY time DESC LIMIT 10;
 
 ---
 
-## 7. Backend + Frontend
+## 7. OT Security Monitor
+
+Fanger nettverkstrafikk (Npc), parser Modbus TCP / OPC UA, lagrer i `network_events`.
+
+```powershell
+cd services\security-monitor
+
+# Liste interfaces
+cargo run -- --list
+
+# Demo (anbefalt uten ekte OT-trafikk)
+cargo run -- --demo
+
+# Live capture (kan kreve admin)
+cargo run -- --iface "\Device\NPF_Loopback"
+```
+
+Mistenkelig Modbus write fra ukjent IP oppretter også `alerts` + `incidents`.
+
+---
+
+## 8. Backend + Frontend
 
 ```powershell
 cd apps\backend

@@ -15,6 +15,7 @@ use crate::{
         DashboardSummary,
         HealthResponse,
         IncidentRow,
+        NetworkEventRow,
         SiteSummary,
         TelemetryRow,
     },
@@ -396,6 +397,39 @@ pub async fn get_incidents(
     .map_err(internal_error)?;
 
     Ok(Json(incidents))
+}
+
+pub async fn get_network_events(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<NetworkEventRow>>, (StatusCode, String)> {
+    // Table may not exist yet if security-monitor has never run.
+    let events = sqlx::query_as::<_, NetworkEventRow>(
+        r#"
+        SELECT
+            id,
+            time,
+            source_ip,
+            destination_ip,
+            source_port,
+            destination_port,
+            transport_protocol,
+            application_protocol,
+            payload_size,
+            modbus_function,
+            opcua_message,
+            suspicious,
+            severity,
+            message
+        FROM network_events
+        ORDER BY time DESC
+        LIMIT 100
+        "#,
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(Json(events))
 }
 
 

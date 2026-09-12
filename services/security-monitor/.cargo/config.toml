@@ -1,0 +1,4 @@
+# Npcap SDK (local Windows build)
+# Update this path if you move/extract the SDK elsewhere.
+[build]
+rustflags = ["-L", "C:\\Users\\ghaaz\\Downloads\\npcap-sdk-1.16\\Lib\\x64"]
