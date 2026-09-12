@@ -42,7 +42,59 @@ fn status_from_metrics(latest: &BTreeMap<String, f64>) -> String {
         }
     }
 
+    if let Some(&pressure) = latest.get("pressure") {
+        if pressure < 2.5 {
+            return "CRITICAL".to_string();
+        }
+        if pressure < 3.5 {
+            status = "WARNING";
+        }
+    }
+
     status.to_string()
+}
+
+fn worse_status(current: &str, candidate: &str) -> String {
+    let rank = |s: &str| match s {
+        "CRITICAL" => 2,
+        "WARNING" => 1,
+        _ => 0,
+    };
+
+    if rank(candidate) > rank(current) {
+        candidate.to_string()
+    } else {
+        current.to_string()
+    }
+}
+
+async fn status_from_alerts(
+    pool: &sqlx::PgPool,
+    asset_id: &str,
+) -> Result<Option<String>, (StatusCode, String)> {
+    let severities: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT severity
+        FROM alerts
+        WHERE asset_id = $1
+          AND acknowledged = false
+        "#,
+    )
+    .bind(asset_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    if severities.is_empty() {
+        return Ok(None);
+    }
+
+    let mut status = "NORMAL".to_string();
+    for (severity,) in severities {
+        status = worse_status(&status, &severity);
+    }
+
+    Ok(Some(status))
 }
 
 async fn latest_metrics_for_asset(
@@ -139,19 +191,9 @@ pub async fn get_dashboard(
     .await
     .map_err(internal_error)?;
 
-    // Until alarm engine fills alerts, count non-NORMAL assets as active issues.
-    let active_alerts = if active_alerts.0 > 0 {
-        active_alerts.0
-    } else {
-        assets
-            .iter()
-            .filter(|asset| asset.status != "NORMAL")
-            .count() as i64
-    };
-
     Ok(Json(DashboardSummary {
         plant_health_percent,
-        active_alerts,
+        active_alerts: active_alerts.0,
         assets,
     }))
 }
@@ -203,7 +245,10 @@ async fn load_assets_with_status(
 
     for row in rows {
         let latest = latest_metrics_for_asset(&state.pool, &row.asset_id).await?;
-        let status = status_from_metrics(&latest);
+        let status = match status_from_alerts(&state.pool, &row.asset_id).await? {
+            Some(from_alerts) => from_alerts,
+            None => status_from_metrics(&latest),
+        };
 
         assets.push(AssetSummary {
             site: row.site,

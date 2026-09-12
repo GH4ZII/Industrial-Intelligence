@@ -139,19 +139,39 @@ SELECT * FROM telemetry ORDER BY time DESC LIMIT 20;
 
 ---
 
-## 6. Alarm Engine (valgfritt)
+## 6. Alarm Engine
 
-Sjekker temperatur > 90 °C og skriver WARNING til `alerts`.
+Sjekker telemetri mot terskler og skriver til `alerts`.
 
 ```powershell
 cd services\alerts
 cargo run
 ```
 
-Forventet når en maskin er for varm:
+Regler:
+
+| Metric | WARNING | CRITICAL |
+| ------ | ------- | -------- |
+| temperature | > 90 °C | > 110 °C |
+| vibration | > 5 mm/s | > 9 mm/s |
+| pressure | < 3.5 bar | < 2.5 bar |
+| RPM avvik | > 20 % | > 30 % |
+
+Forventet output ved brudd:
 
 ```text
-ALERT P101 WARNING — 104.2 °C @ ...
+--------------------------------
+CRITICAL
+
+P101
+
+High vibration detected on pump P101
+
+9.2 mm/s
+
+Detected:
+20:42:31
+--------------------------------
 ```
 
 Verifiser:
