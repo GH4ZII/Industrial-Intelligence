@@ -1,0 +1,30 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: industrial-mqtt
+    command: mosquitto -c /mosquitto-no-auth.conf
+    ports:
+      - "1883:1883"
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: industrial-timescaledb
+    environment:
+      POSTGRES_USER: industrial
+      POSTGRES_PASSWORD: industrial123
+      POSTGRES_DB: industrial_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U industrial -d industrial_intelligence"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  timescale-data:
