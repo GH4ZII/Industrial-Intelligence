@@ -1,103 +1,135 @@
 # Industrial Intelligence
 
-Plattform for overvåking av industrielle systemer og OT-miljøer. Samler sanntidsdata fra maskiner og sensorer, oppdager unormal oppførsel, og gir operatører oversikt over både produksjon og cybersikkerhet.
+Overvåkingsplattform for industri og OT-miljøer. Den samler sanntidsdata fra maskiner, viser anleggshelse i et dashboard, lager alarmer ved unormal drift, og overvåker samtidig OT-nettverket for mistenkelig aktivitet mot PLS-er.
 
-Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, maritim sektor eller kritisk infrastruktur.
+Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, maritim sektor eller kritisk infrastruktur — der produksjon og cybersikkerhet må ses sammen.
 
-## Hva systemet gjør
+---
 
-- Innhenter telemetri via MQTT, Modbus TCP og OPC UA
-- Prosesserer sanntids- og historiske sensordata
-- Viser plant health og asset-status i et dashboard
-- Genererer alarmer ved terskelbrudd og anomalier
-- Overvåker OT-nettverk for mistenkelig aktivitet (MITRE ATT&CK for ICS)
-- Støtter incident management og predictive maintenance
+## Problemet
+
+I en fabrikk kjører pumper, motorer, tanker og ventiler. Sensorer sender temperatur, vibrasjon, trykk og RPM. Hvis en pumpe begynner å vibrere for mye, må operatøren se det raskt.
+
+Samtidig er OT-nettverket (PLS, HMI, Modbus, OPC UA) et eget angrepsflate. En ukjent maskin som skriver til en PLS kan stoppe eller sabotere produksjonen. Vanlige IT-overvåkingssystemer ser sjelden denne trafikken.
+
+Industrial Intelligence kombinerer **plant health** og **OT-sikkerhet** i ett bilde.
+
+---
+
+## Hva som er bygget
+
+En virtuell fabrikk i Trondheim simulerer fire maskiner og publiserer telemetri hvert sekund. Dataene går gjennom en MQTT-pipeline, lagres som tidsserier, evalueres mot terskelregler, og vises i et dashboard. En egen sikkerhetstjeneste parser Modbus TCP og OPC UA og flagger uautoriserte skriv mot PLS.
+
+| Asset | Type | Målinger |
+| --- | --- | --- |
+| P101 | Pumpe | RPM, temperatur, vibrasjon, trykk, effekt |
+| M201 | Motor | temperatur, RPM, strøm, vibrasjon |
+| T301 | Tank | nivå, temperatur, trykk |
+| V401 | Ventil | åpen/lukket, flow, posisjon |
+
+Maskinene kan gå i feiltilstand: temperatur og vibrasjon stiger, RPM faller. Det gir realistiske alarmer uten ekte hardware.
+
+Dashboardet viser plant health, maskinstatus (NORMAL / WARNING / CRITICAL), live grafer per asset, og OT-sikkerhetshendelser.
+
+---
 
 ## Arkitektur
 
+Tjenestene er løst koblet. Ingest, alarmer og pakkeanalyse er egne prosesser som kommuniserer via MQTT og databasen.
+
 ```text
-PLS / simulatorer / sensorer
-        │
-        ├── Modbus TCP
-        ├── OPC UA
-        └── MQTT
+Virtuell fabrikk (simulator)
+        │  MQTT hvert sekund
         ▼
- Industrial Gateway → Message Broker (MQTT / Kafka)
+   Mosquitto (broker)
         │
-        ├─ Data Processing → Time-Series DB
-        └─ Security Monitor → Alert Engine
-                    │
-              Backend API → Dashboard
+        ▼
+   Ingestion-service
+        │
+        ▼
+   TimescaleDB  ──►  Alarm Engine (terskler)
+        │
+        ▼
+   Backend API  ──►  Next.js-dashboard
+
+Parallelt:
+   Security Monitor (pcap / demo)
+        │  parser Modbus TCP + OPC UA
+        ▼
+   network_events + incidents  ──►  dashboard
 ```
+
+**Simulator** publiserer JSON på topics som `factory/trondheim/pump/P101/telemetry`.
+
+**Ingestion** abonnerer på `factory/trondheim/+/+/telemetry` og skriver til TimescaleDB.
+
+**Alarm engine** poller siste verdier og lager WARNING / CRITICAL ved terskelbrudd (temperatur, vibrasjon, trykk, RPM-avvik).
+
+**Security monitor** fanger nettverkstrafikk eller kjører syntetisk demo. Ukjent IP som sender Modbus Write mot PLS-subnet flagges som HIGH og kan opprette en incident.
+
+**Backend** er et REST-API mot dashboardet: sites, assets, telemetri, alarmer, security events, incidents, samt register/login med roller (admin / operator).
+
+---
 
 ## Tech stack
 
-| Lag | Teknologi |
-| --- | --- |
-| Backend | Rust, Axum, Tokio, SQLx |
-| Frontend | React, TypeScript, Next.js, Tailwind |
-| Data | PostgreSQL, TimescaleDB |
-| Messaging | MQTT (Kafka senere) |
-| OT | MQTT, Modbus TCP, OPC UA |
-| Infra | Docker, Compose, Prometheus, Grafana |
+| Lag | Teknologi | Hvorfor |
+| --- | --- | --- |
+| Tjenester | Rust, Tokio, Axum, SQLx | Lav latency og minnesikkerhet, passer industri og sikkerhetstjenester |
+| Frontend | Next.js, React, TypeScript, Tailwind | Operatørdashboard med live grafer |
+| Data | TimescaleDB (PostgreSQL) | Tidsserier uten egen Influx-stack |
+| Meldinger | MQTT (Mosquitto) | Lett og vanlig i IoT/OT; Kafka er neste steg ved høyere volum |
+| OT | Modbus TCP, OPC UA | Protokoller mot PLS og industrielle kontrollere |
+| Infra | Docker Compose | MQTT-broker og database lokalt |
 
-## MVP
+Alarmer er terskelbaserte først. Det er forklarbart og testbart. Maskinlæring for anomalier ligger i veikartet, ikke i koden ennå.
 
-Første fungerende versjon:
+---
 
-```text
-Industrial Simulator → MQTT → Rust backend → TimescaleDB → React dashboard
-```
+## Demo-scenario
 
-Dashboardet viser maskiner, temperatur, vibrasjon, RPM, trykk, status og historiske grafer. OT Security bygges etter at MVP er stabil.
+1. Fabrikken kjører normalt. Dashboardet viser høy plant health.
+2. Pumpe P101 går i fault. Vibrasjon og temperatur stiger.
+3. Alarm engine lager CRITICAL. Plant health faller. Operatøren ser det på grafer.
+4. Samtidig sender en ukjent IP en Modbus Write til en PLS.
+5. Security monitor flagger HIGH, lager incident, og dashboardet viser OT-hendelsen.
 
-## Milepæler
+Det er produksjon og cyber i samme system — det som skiller prosjektet fra et vanlig IoT-dashboard.
 
-| Uke | Milepæl |
-| --- | --- |
-| 1–2 | Industrial simulator |
-| 3 | MQTT pipeline |
-| 4–5 | Rust backend |
-| 6–7 | Dashboard |
-| 8 | Alarm engine |
-| 9–10 | OT network monitor |
-| 11 | Cyber detection |
-| 12–13 | AI anomaly detection |
-| 14 | Digital twin |
-| 15 | Incident management |
-| 16 | Full deployment |
+---
 
-## Målstruktur
+## Repo-struktur
 
 ```text
-apps/          frontend, backend
-services/      ingestion, alerts, security, anomaly, incidents
-simulators/    factory- og PLC-simulator
-protocols/     mqtt, modbus, opcua
-infrastructure/ docker, k8s, monitoring
-ml/            anomaly detection, predictive maintenance
-docs/          architecture, security, api
+apps/
+  backend/              REST-API (Axum)
+  frontend/             Operatørdashboard (Next.js)
+services/
+  ingestion/            MQTT → TimescaleDB
+  alerts/               Terskelalarmer
+  security-monitor/     OT-trafikk, Modbus/OPC UA, deteksjon
+simulators/
+  factory-simulator/    Virtuell fabrikk
+infrastructure/
+  docker/               TimescaleDB-schema
 ```
 
-## Status
+---
 
-Tidlig fase. Kodebase og arkitektur er under oppsett.
+## Veikart
+
+Bygget: simulator, MQTT-pipeline, ingest, backend, dashboard, alarm engine, OT-monitor med deteksjon og incidents.
+
+Ikke bygget ennå: Kafka, ML-anomalideteksjon, predictive maintenance, digital twin, MITRE ATT&CK for ICS-mapping, Kubernetes, Prometheus/Grafana, CI/CD. Telemetri går via MQTT; Modbus og OPC UA brukes i security-monitor.
+
+---
 
 ## Kom i gang
-
-```bash
-git clone https://github.com/<org>/Industrial-Intelligence.git
-cd Industrial-Intelligence
-```
-
-På Windows (PowerShell), start hele stakken:
 
 ```powershell
 .\start-all.ps1
 ```
 
-Dashboard: http://localhost:3001 — stopp med `.\stop-all.ps1`. Se `START.md` for detaljer.
+Dashboard: http://localhost:3001
 
-## Merknad
-
-Detaljert prosjektplan ligger lokalt i `project-plan.md` og er ikke versjonert.
+Stopp med `.\stop-all.ps1`. Detaljert oppstart, porter og manuell kjøring står i [`START.md`](START.md).
