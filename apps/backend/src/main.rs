@@ -1,168 +1,106 @@
 mod auth;
 mod models;
 mod routes;
+mod schema;
+
+use std::time::Duration;
 
 use axum::{
     routing::{get, post},
     Router,
 };
 
-use sqlx::{
-    postgres::PgPoolOptions,
-    PgPool,
-};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
 }
 
-use tower_http::cors::{
-    Any,
-    CorsLayer,
-};
+async fn connect_db() -> PgPool {
+    let database_url = schema::database_url();
+    println!("Database: {database_url}");
 
+    for attempt in 1..=30 {
+        match PgPoolOptions::new()
+            .max_connections(10)
+            .connect(&database_url)
+            .await
+        {
+            Ok(pool) => return pool,
+            Err(error) => {
+                eprintln!("TimescaleDB connect attempt {attempt}/30 failed: {error}");
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+        }
+    }
+
+    panic!("Failed to connect to TimescaleDB");
+}
 
 #[tokio::main]
 async fn main() {
+    println!("Starting Industrial Intelligence Backend...");
 
-    println!(
-        "Starting Industrial Intelligence Backend..."
-    );
-
-
-    let database_url =
-        "postgres://industrial:industrial123@localhost:5432/industrial_intelligence";
-
-
-    let pool =
-        PgPoolOptions::new()
-            .max_connections(10)
-            .connect(database_url)
-            .await
-            .expect(
-                "Failed to connect to TimescaleDB"
-            );
-
-
+    let pool = connect_db().await;
+    schema::ensure_schema(&pool)
+        .await
+        .expect("Failed to apply schema");
     println!("Connected to TimescaleDB.");
 
-
-    let state = AppState {
-        pool,
-    };
-
+    let state = AppState { pool };
 
     let app = Router::new()
-
-        // Health
-        .route(
-            "/health",
-            get(routes::health),
-        )
-
-        // Sites
-        .route(
-            "/api/sites",
-            get(routes::get_sites),
-        )
-
-        // Dashboard
-        .route(
-            "/api/dashboard",
-            get(routes::get_dashboard),
-        )
-
-        // Alerts
-        .route(
-            "/api/alerts",
-            get(routes::get_alerts),
-        )
-
-        // Assets
-        .route(
-            "/api/assets",
-            get(routes::get_assets),
-        )
-
-        .route(
-            "/api/assets/{asset_id}",
-            get(routes::get_asset),
-        )
-
+        .route("/health", get(routes::health))
+        .route("/metrics", get(routes::metrics))
+        .route("/api/sites", get(routes::get_sites))
+        .route("/api/dashboard", get(routes::get_dashboard))
+        .route("/api/alerts", get(routes::get_alerts))
+        .route("/api/health-overview", get(routes::get_health_overview))
+        .route("/api/assets", get(routes::get_assets))
+        .route("/api/assets/{asset_id}", get(routes::get_asset))
         .route(
             "/api/assets/{asset_id}/telemetry",
             get(routes::get_asset_telemetry),
         )
-
         .route(
             "/api/assets/{asset_id}/alerts",
             get(routes::get_asset_alerts),
         )
-
-        // Incidents
         .route(
-            "/api/incidents",
-            get(routes::get_incidents),
+            "/api/assets/{asset_id}/anomalies",
+            get(routes::get_asset_anomalies),
         )
-
-        // OT Security / network events
         .route(
-            "/api/security/events",
-            get(routes::get_network_events),
+            "/api/assets/{asset_id}/health",
+            get(routes::get_asset_health),
         )
-
-        // Authentication
+        .route("/api/incidents", get(routes::get_incidents))
         .route(
-            "/api/auth/register",
-            post(auth::register),
+            "/api/incidents/{incident_id}",
+            get(routes::get_incident).patch(routes::patch_incident),
         )
-
-        .route(
-            "/api/auth/login",
-            post(auth::login),
-        )
-
-        // Users
-        .route(
-            "/api/users/me",
-            get(auth::me),
-        )
-
-        .route(
-            "/api/users",
-            get(auth::get_users),
-        )
-
-        .route(
-            "/api/roles",
-            get(auth::get_roles),
-        )
-
+        .route("/api/security/events", get(routes::get_network_events))
+        .route("/api/auth/register", post(auth::register))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/users/me", get(auth::me))
+        .route("/api/users", get(auth::get_users))
+        .route("/api/roles", get(auth::get_roles))
         .with_state(state)
-
-        .layer(CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any)
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
         );
 
-
-    let listener =
-        tokio::net::TcpListener::bind(
-            "0.0.0.0:3000"
-        )
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .unwrap();
 
+    println!("Backend running on http://localhost:3000");
 
-    println!(
-        "Backend running on http://localhost:3000"
-    );
-
-
-    axum::serve(listener, app)
-        .await
-        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

@@ -11,6 +11,7 @@ $titles = @(
     "factory-simulator",
     "alerts",
     "security-monitor",
+    "anomaly-engine",
     "backend",
     "frontend"
 )
@@ -33,12 +34,14 @@ $patterns = @(
     "services\\ingestion",
     "simulators\\factory-simulator",
     "services\\alerts",
+    "services\\security-monitor",
     "apps\\backend",
-    "apps\\frontend"
+    "apps\\frontend",
+    "anomaly_engine"
 )
 
 Get-CimInstance Win32_Process | Where-Object {
-    $_.Name -match '^(cargo|ingestion|alerts|backend|node|next|factory-simulator)' -or
+    $_.Name -match '^(cargo|ingestion|alerts|backend|node|next|factory-simulator|python|python3)' -or
     ($_.CommandLine -and ($patterns | Where-Object { $_.CommandLine -like "*$_*" }))
 } | ForEach-Object {
     # Be conservative: only kill if command line mentions this repo

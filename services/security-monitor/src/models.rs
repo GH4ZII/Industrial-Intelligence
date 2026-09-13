@@ -16,6 +16,8 @@ pub struct NetworkEvent {
     pub suspicious: bool,
     pub severity: Option<String>,
     pub message: Option<String>,
+    pub mitre_id: Option<String>,
+    pub mitre_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDashboard, getSecurityEvents } from "@/lib/api";
+import { getDashboard, getIncidents, getSecurityEvents } from "@/lib/api";
 
 function statusClass(status: string) {
   switch (status) {
@@ -14,22 +14,31 @@ function statusClass(status: string) {
   }
 }
 
+function healthBar(percent: number) {
+  const filled = Math.round(percent / 10);
+  return "█".repeat(filled) + "░".repeat(Math.max(0, 10 - filled));
+}
+
 export default async function Home() {
-  const [dashboard, securityEvents] = await Promise.all([
+  const [dashboard, securityEvents, incidents] = await Promise.all([
     getDashboard(),
     getSecurityEvents(),
+    getIncidents(),
   ]);
 
   const suspicious = securityEvents.filter((e) => e.suspicious).slice(0, 5);
+  const openIncidents = incidents
+    .filter((incident) => incident.status !== "resolved")
+    .slice(0, 5);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white p-8">
+    <main className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">
           Industrial Intelligence Platform
         </h1>
 
-        <section className="mb-10 grid grid-cols-1 gap-8 sm:grid-cols-2">
+        <section className="mb-10 grid grid-cols-1 gap-8 sm:grid-cols-3">
           <div>
             <p className="text-neutral-400">Plant Health</p>
             <p className="text-4xl font-bold mt-1">
@@ -41,6 +50,13 @@ export default async function Home() {
             <p className="text-neutral-400">Security</p>
             <p className="text-4xl font-bold mt-1">
               {dashboard.active_alerts} Active Alerts
+            </p>
+          </div>
+
+          <div>
+            <p className="text-neutral-400">Incidents</p>
+            <p className="text-4xl font-bold mt-1">
+              {openIncidents.length} Open
             </p>
           </div>
         </section>
@@ -63,6 +79,12 @@ export default async function Home() {
                     </span>
                   </p>
                   <p className="text-neutral-500 text-sm">{asset.site}</p>
+                  {asset.health_percent != null && (
+                    <p className="text-neutral-400 text-sm mt-1 font-mono">
+                      Health {healthBar(asset.health_percent)}{" "}
+                      {Math.round(asset.health_percent)}%
+                    </p>
+                  )}
                 </div>
 
                 <span
@@ -75,16 +97,48 @@ export default async function Home() {
           </div>
         </section>
 
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Open Incidents</h2>
+            <Link href="/incidents" className="text-sm text-neutral-400 hover:text-white">
+              View all
+            </Link>
+          </div>
+
+          {openIncidents.length === 0 ? (
+            <p className="text-neutral-500">No open incidents.</p>
+          ) : (
+            <div className="space-y-3">
+              {openIncidents.map((incident) => (
+                <Link
+                  key={incident.id}
+                  href={`/incidents/${incident.id}`}
+                  className="block border border-neutral-800 rounded-lg p-4 hover:border-neutral-600"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold">
+                      INCIDENT #{incident.id} · {incident.title}
+                    </p>
+                    <span className={`text-sm font-semibold ${statusClass(incident.severity)}`}>
+                      {incident.severity}
+                    </span>
+                  </div>
+                  <p className="text-neutral-400 text-sm mt-2">
+                    {incident.asset_id ?? "Unknown asset"} · {incident.status}
+                    {incident.assigned_to ? ` · ${incident.assigned_to}` : ""}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section>
           <h2 className="text-xl font-semibold mb-4">OT Security Events</h2>
 
           {suspicious.length === 0 ? (
             <p className="text-neutral-500">
-              No suspicious Modbus/OPC UA events yet. Run{" "}
-              <code className="text-neutral-300">
-                cargo run -- --demo
-              </code>{" "}
-              in security-monitor.
+              No suspicious Modbus/OPC UA events yet.
             </p>
           ) : (
             <div className="space-y-3">
