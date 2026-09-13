@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import math
-
 
 def map_decision_to_score(decision: float) -> float:
     """Convert IsolationForest.decision_function to 0–1 (higher = more anomalous).
 
-    Positive decisions are inliers; negative decisions are outliers.
+    Inliers typically have positive decisions (~0.1–0.4 → scores near 0.08).
+    Outliers have negative decisions (→ scores near 0.9).
     """
-    score = 1.0 / (1.0 + math.exp(decision * 5.0))
-    return max(0.0, min(1.0, score))
+    return max(0.0, min(1.0, 0.5 - decision))
 
 
 def zscore_anomaly(value: float, mean: float, std: float) -> float:
