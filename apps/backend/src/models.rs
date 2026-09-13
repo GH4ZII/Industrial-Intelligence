@@ -31,6 +31,8 @@ pub struct AssetSummary {
     pub asset_type: String,
     pub asset_id: String,
     pub status: String,
+    pub health_percent: Option<f64>,
+    pub anomaly_score: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -78,11 +80,58 @@ pub struct AlertRow {
 pub struct IncidentRow {
     pub id: i64,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub severity: String,
     pub status: String,
     pub title: String,
     pub asset_id: Option<String>,
     pub description: Option<String>,
+    pub assigned_to: Option<String>,
+    pub mitre_id: Option<String>,
+    pub mitre_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct IncidentEventRow {
+    pub id: i64,
+    pub incident_id: i64,
+    pub time: DateTime<Utc>,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct IncidentDetail {
+    pub incident: IncidentRow,
+    pub events: Vec<IncidentEventRow>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PatchIncidentRequest {
+    pub status: Option<String>,
+    pub assigned_to: Option<String>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct AnomalyScoreRow {
+    pub time: DateTime<Utc>,
+    pub site: String,
+    pub asset_id: String,
+    pub score: f64,
+    pub is_anomaly: bool,
+    pub contributing_metrics: Option<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct AssetHealthRow {
+    pub time: DateTime<Utc>,
+    pub site: String,
+    pub asset_id: String,
+    pub health_percent: f64,
+    pub risk_7d: f64,
+    pub risk_30d: f64,
+    pub risk_90d: f64,
+    pub recommended_action: Option<String>,
 }
 
 #[derive(Debug, Serialize, FromRow)]

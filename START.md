@@ -1,6 +1,35 @@
 # Oppstart – Industrial Intelligence
 
-## Hurtigstart (anbefalt)
+To måter å kjøre stakken på: **Docker Compose** (hele plattformen) eller **Windows-dev** med `start-all.ps1`.
+
+## Docker Compose (anbefalt)
+
+Fra repo-roten. Krever Docker.
+
+```bash
+docker compose up --build
+```
+
+| Tjeneste | URL |
+| --- | --- |
+| Dashboard | http://localhost:3001 |
+| Backend | http://localhost:3000 |
+| Grafana | http://localhost:3002 (admin / industrial) |
+| Prometheus | http://localhost:9090 |
+| MQTT | localhost:1883 |
+| TimescaleDB | localhost:5432 |
+
+Stopp:
+
+```bash
+docker compose down
+```
+
+Containere: factory-simulator, mqtt, ingestion, alerts, security-monitor (--demo), ml-service, backend, frontend, timescaledb, prometheus, grafana.
+
+---
+
+## Hurtigstart (Windows-dev)
 
 Fra repo-roten:
 
@@ -8,7 +37,7 @@ Fra repo-roten:
 .\start-all.ps1
 ```
 
-Starter MQTT, TimescaleDB, ingestion, factory-simulator, alerts, backend og frontend i egne vinduer.
+Starter MQTT, TimescaleDB, ingestion, factory-simulator, alerts, security-monitor, anomaly-engine, backend og frontend i egne vinduer.
 
 Stopp:
 
@@ -18,7 +47,7 @@ Stopp:
 
 Dashboard: http://localhost:3001
 
-**Krav:** Docker Desktop kjører. Lokal Windows-Postgres på port `5432` må være stoppet (admin-PowerShell: `Stop-Service postgresql-x64-17`).
+**Krav:** Docker Desktop, Rust/Cargo, Node.js/npm, Python 3.11+. Lokal Windows-Postgres på port `5432` må være stoppet (admin-PowerShell: `Stop-Service postgresql-x64-17`).
 
 ---
 
@@ -34,6 +63,7 @@ Docker Desktop
     → Factory-simulator
     → Alarm Engine
     → OT Security Monitor
+    → Anomaly Engine
     → Backend
     → Frontend
 ```
@@ -45,6 +75,7 @@ Docker Desktop
 - Docker Desktop kjører
 - Rust / Cargo er installert
 - Node.js / npm er installert (frontend)
+- Python 3.11+ (anomaly engine)
 - Lokal Windows-Postgres på port `5432` er **stopp**et (ellers treffer ingestion feil database)
 
 ```powershell
@@ -66,13 +97,6 @@ docker compose up -d
 docker compose up -d mqtt
 ```
 
-Alternativ uten Compose:
-
-```powershell
-docker rm -f industrial-mqtt 2>$null
-docker run -d --name industrial-mqtt -p 1883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf
-```
-
 Sjekk:
 
 ```powershell
@@ -89,48 +113,17 @@ docker compose up -d timescaledb
 
 Første gang opprettes tabeller automatisk via `infrastructure/docker/init.sql`.
 
-Alternativ uten Compose:
-
-```powershell
-docker rm -f industrial-timescaledb 2>$null
-docker run -d --name industrial-timescaledb `
-  -e POSTGRES_USER=industrial `
-  -e POSTGRES_PASSWORD=industrial123 `
-  -e POSTGRES_DB=industrial_intelligence `
-  -p 5432:5432 `
-  timescale/timescaledb:latest-pg17
-```
-
 Sjekk:
 
 ```powershell
 docker ps --filter name=industrial-timescaledb
 ```
 
-### Manuell tabell-opprettelse (kun hvis volume allerede finnes uten schema)
+Connection string (overstyr med `DATABASE_URL`):
 
-```powershell
-docker exec -it industrial-timescaledb psql -U industrial -d industrial_intelligence
+```text
+postgres://industrial:industrial123@localhost:5432/industrial_intelligence
 ```
-
-I `psql`:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-
-CREATE TABLE IF NOT EXISTS telemetry (
-    time        TIMESTAMPTZ NOT NULL,
-    site        TEXT NOT NULL,
-    asset_type  TEXT NOT NULL,
-    asset_id    TEXT NOT NULL,
-    metric      TEXT NOT NULL,
-    value       DOUBLE PRECISION NOT NULL
-);
-
-SELECT create_hypertable('telemetry', 'time', if_not_exists => TRUE);
-```
-
-Avslutt med `\q`.
 
 ---
 
@@ -168,27 +161,18 @@ Forventet output:
 
 ```text
 Published factory telemetry
-Published factory telemetry
 ...
 ```
 
-La denne terminalen stå åpen.
+MQTT-topic:
 
----
-
-## 5. Verifiser data
-
-```powershell
-docker exec -it industrial-timescaledb psql -U industrial -d industrial_intelligence
-```
-
-```sql
-SELECT * FROM telemetry ORDER BY time DESC LIMIT 20;
+```text
+factory/trondheim/+/+/telemetry
 ```
 
 ---
 
-## 6. Alarm Engine
+## 5. Alarm Engine
 
 Sjekker telemetri mot terskler og skriver til `alerts`.
 
@@ -206,34 +190,11 @@ Regler:
 | pressure | < 3.5 bar | < 2.5 bar |
 | RPM avvik | > 20 % | > 30 % |
 
-Forventet output ved brudd:
-
-```text
---------------------------------
-CRITICAL
-
-P101
-
-High vibration detected on pump P101
-
-9.2 mm/s
-
-Detected:
-20:42:31
---------------------------------
-```
-
-Verifiser:
-
-```sql
-SELECT * FROM alerts ORDER BY time DESC LIMIT 10;
-```
-
 ---
 
-## 7. OT Security Monitor
+## 6. OT Security Monitor
 
-Fanger nettverkstrafikk (Npc), parser Modbus TCP / OPC UA, lagrer i `network_events`.
+Fanger nettverkstrafikk (Npcap), parser Modbus TCP / OPC UA, lagrer i `network_events`. Mistenkelig Modbus write får MITRE **T0831** og åpner incident med tidslinje.
 
 ```powershell
 cd services\security-monitor
@@ -248,7 +209,18 @@ cargo run -- --demo
 cargo run -- --iface "\Device\NPF_Loopback"
 ```
 
-Mistenkelig Modbus write fra ukjent IP oppretter også `alerts` + `incidents`.
+---
+
+## 7. Anomaly Engine
+
+Isolation Forest + predictive maintenance. Skriver `anomaly_scores`, `asset_health` og anomaly-alerts.
+
+```powershell
+cd ml
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+.\.venv\Scripts\python -m anomaly_engine
+```
 
 ---
 
@@ -266,39 +238,12 @@ npm run dev
 
 Åpne http://localhost:3001
 
-Backend må kjøre på port 3000 (frontend henter data derfra).
+- Dashboard: helse, alarmer, incidents
+- Twin: `/twin`
+- Incidents: `/incidents`
+- Asset: grafer, anomaly score, 7/30/90-dagers risiko
 
----
-
-## Hurtigstart (containere allerede opprettet)
-
-Hvis `industrial-mqtt` og `industrial-timescaledb` finnes fra før:
-
-```powershell
-docker start industrial-mqtt industrial-timescaledb
-```
-
-Eller:
-
-```powershell
-docker compose start
-```
-
-Deretter, i separate terminaler — eller bare `.\start-all.ps1`.
-
----
-
-## Stopp
-
-`Ctrl+C` i terminalene, eller:
-
-```powershell
-.\stop-all.ps1
-```
-
-```powershell
-docker compose stop
-```
+Backend må kjøre på port 3000 (frontend henter data derfra, `NEXT_PUBLIC_API_URL`).
 
 ---
 
@@ -308,6 +253,8 @@ docker compose stop
 | ------------ | ----------- | ---- |
 | Frontend     | `localhost` | 3001 |
 | Backend      | `localhost` | 3000 |
+| Grafana      | `localhost` | 3002 |
+| Prometheus   | `localhost` | 9090 |
 | MQTT         | `localhost` | 1883 |
 | TimescaleDB  | `localhost` | 5432 |
 
@@ -316,15 +263,3 @@ docker compose stop
 | User     | `industrial`              |
 | Password | `industrial123`           |
 | Database | `industrial_intelligence` |
-
-Connection string:
-
-```text
-postgres://industrial:industrial123@localhost:5432/industrial_intelligence
-```
-
-MQTT-topic:
-
-```text
-factory/trondheim/+/+/telemetry
-```

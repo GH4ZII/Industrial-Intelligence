@@ -1,4 +1,3 @@
-# Npcap SDK (local Windows build)
-# Update this path if you move/extract the SDK elsewhere.
-[build]
+# Npcap SDK is only needed on Windows host builds.
+[target.x86_64-pc-windows-msvc]
 rustflags = ["-L", "C:\\Users\\ghaaz\\Downloads\\npcap-sdk-1.16\\Lib\\x64"]

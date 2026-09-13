@@ -23,7 +23,7 @@ export default async function AssetPage({
           href="/"
           className="text-neutral-400 hover:text-white"
         >
-          ← Back to dashboard
+          ← Dashboard
         </Link>
 
         <div className="mt-8 mb-10">

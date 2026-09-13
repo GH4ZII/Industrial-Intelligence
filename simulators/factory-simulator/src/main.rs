@@ -6,13 +6,24 @@ use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::time::Duration;
 use tokio::time;
 
+fn mqtt_host() -> String {
+    std::env::var("MQTT_HOST").unwrap_or_else(|_| "localhost".to_string())
+}
+
+fn mqtt_port() -> u16 {
+    std::env::var("MQTT_PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(1883)
+}
+
 #[tokio::main]
 async fn main() {
     let mut factory = Factory::new();
 
     // MQTT
     let mut mqtt_options =
-        MqttOptions::new("factory-simulator", "localhost", 1883);
+        MqttOptions::new("factory-simulator", mqtt_host(), mqtt_port());
 
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 

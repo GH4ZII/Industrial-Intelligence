@@ -8,8 +8,9 @@ Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, mari
 
 - Innhenter telemetri via MQTT, Modbus TCP og OPC UA
 - Prosesserer sanntids- og historiske sensordata
-- Viser plant health og asset-status i et dashboard
-- Genererer alarmer ved terskelbrudd og anomalier
+- Viser plant health, digital twin og asset-status
+- Genererer alarmer ved terskelbrudd og ML-anomalier
+- Estimerer maskinhelse og vedlikeholdsrisiko
 - Overvåker OT-nettverk for mistenkelig aktivitet (MITRE ATT&CK for ICS)
 - Støtter incident management og predictive maintenance
 
@@ -22,12 +23,15 @@ PLS / simulatorer / sensorer
         ├── OPC UA
         └── MQTT
         ▼
- Industrial Gateway → Message Broker (MQTT / Kafka)
+ Industrial Gateway → Message Broker (MQTT)
         │
         ├─ Data Processing → Time-Series DB
+        ├─ Anomaly Engine (Isolation Forest)
         └─ Security Monitor → Alert Engine
                     │
               Backend API → Dashboard
+                    │
+              Prometheus / Grafana
 ```
 
 ## Tech stack
@@ -36,68 +40,33 @@ PLS / simulatorer / sensorer
 | --- | --- |
 | Backend | Rust, Axum, Tokio, SQLx |
 | Frontend | React, TypeScript, Next.js, Tailwind |
+| ML | Python, scikit-learn Isolation Forest |
 | Data | PostgreSQL, TimescaleDB |
-| Messaging | MQTT (Kafka senere) |
+| Messaging | MQTT |
 | OT | MQTT, Modbus TCP, OPC UA |
-| Infra | Docker, Compose, Prometheus, Grafana |
-
-## MVP
-
-Første fungerende versjon:
-
-```text
-Industrial Simulator → MQTT → Rust backend → TimescaleDB → React dashboard
-```
-
-Dashboardet viser maskiner, temperatur, vibrasjon, RPM, trykk, status og historiske grafer. OT Security bygges etter at MVP er stabil.
-
-## Milepæler
-
-| Uke | Milepæl |
-| --- | --- |
-| 1–2 | Industrial simulator |
-| 3 | MQTT pipeline |
-| 4–5 | Rust backend |
-| 6–7 | Dashboard |
-| 8 | Alarm engine |
-| 9–10 | OT network monitor |
-| 11 | Cyber detection |
-| 12–13 | AI anomaly detection |
-| 14 | Digital twin |
-| 15 | Incident management |
-| 16 | Full deployment |
-
-## Målstruktur
-
-```text
-apps/          frontend, backend
-services/      ingestion, alerts, security, anomaly, incidents
-simulators/    factory- og PLC-simulator
-protocols/     mqtt, modbus, opcua
-infrastructure/ docker, k8s, monitoring
-ml/            anomaly detection, predictive maintenance
-docs/          architecture, security, api
-```
-
-## Status
-
-Tidlig fase. Kodebase og arkitektur er under oppsett.
+| Infra | Docker Compose, Prometheus, Grafana, GitHub Actions |
 
 ## Kom i gang
 
+**Hele stakken i Docker (anbefalt for demo):**
+
 ```bash
-git clone https://github.com/<org>/Industrial-Intelligence.git
-cd Industrial-Intelligence
+docker compose up --build
 ```
 
-På Windows (PowerShell), start hele stakken:
+- Dashboard: http://localhost:3001
+- Backend: http://localhost:3000
+- Grafana: http://localhost:3002 (admin / industrial)
+- Prometheus: http://localhost:9090
 
-```powershell
-.\start-all.ps1
+På Windows uten containere for appene: `.\start-all.ps1` (krever Docker for MQTT + TimescaleDB, Rust, Node.js og Python 3.11+). Stopp med `.\stop-all.ps1`. Se `START.md`.
+
+## Struktur
+
+```text
+apps/          frontend, backend
+services/      ingestion, alerts, security-monitor
+simulators/    factory-simulator
+ml/            anomaly-detection + predictive maintenance
+infrastructure/ docker, monitoring
 ```
-
-Dashboard: http://localhost:3001 — stopp med `.\stop-all.ps1`. Se `START.md` for detaljer.
-
-## Merknad
-
-Detaljert prosjektplan ligger lokalt i `project-plan.md` og er ikke versjonert.

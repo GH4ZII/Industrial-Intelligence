@@ -5,16 +5,45 @@ use tokio::sync::mpsc;
 
 use crate::models::NetworkEvent;
 
-const DATABASE_URL: &str =
-    "postgres://industrial:industrial123@localhost:5432/industrial_intelligence";
+fn database_url() -> String {
+    std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://industrial:industrial123@localhost:5432/industrial_intelligence"
+            .to_string()
+    })
+}
 
 pub async fn init_pool() -> Result<PgPool> {
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(DATABASE_URL)
-        .await
-        .context("Failed to connect to TimescaleDB")?;
+    let url = database_url();
+    let mut last_error = None;
+    let pool = {
+        let mut connected = None;
+        for attempt in 1..=30 {
+            match PgPoolOptions::new().max_connections(5).connect(&url).await {
+                Ok(pool) => {
+                    connected = Some(pool);
+                    break;
+                }
+                Err(error) => {
+                    eprintln!("TimescaleDB connect attempt {attempt}/30 failed: {error}");
+                    last_error = Some(error);
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+            }
+        }
+        connected.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Failed to connect to TimescaleDB: {:?}",
+                last_error
+            )
+        })?
+    };
 
+    ensure_schema(&pool).await?;
+    println!("Connected to TimescaleDB (network_events ready).");
+    Ok(pool)
+}
+
+async fn ensure_schema(pool: &PgPool) -> Result<()> {
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS network_events (
@@ -35,7 +64,7 @@ pub async fn init_pool() -> Result<PgPool> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
 
     sqlx::query(
@@ -44,11 +73,64 @@ pub async fn init_pool() -> Result<PgPool> {
         ON network_events (time DESC)
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
 
-    println!("Connected to TimescaleDB (network_events ready).");
-    Ok(pool)
+    sqlx::query(
+        r#"
+        ALTER TABLE incidents
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        "#,
+    )
+    .execute(pool)
+    .await
+    .ok();
+
+    sqlx::query(
+        r#"
+        ALTER TABLE incidents
+            ADD COLUMN IF NOT EXISTS assigned_to TEXT
+        "#,
+    )
+    .execute(pool)
+    .await
+    .ok();
+
+    sqlx::query(
+        r#"
+        ALTER TABLE incidents
+            ADD COLUMN IF NOT EXISTS mitre_id TEXT
+        "#,
+    )
+    .execute(pool)
+    .await
+    .ok();
+
+    sqlx::query(
+        r#"
+        ALTER TABLE incidents
+            ADD COLUMN IF NOT EXISTS mitre_name TEXT
+        "#,
+    )
+    .execute(pool)
+    .await
+    .ok();
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS incident_events (
+            id          BIGSERIAL PRIMARY KEY,
+            incident_id BIGINT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+            time        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            message     TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .ok();
+
+    Ok(())
 }
 
 pub fn spawn_writer(pool: PgPool) -> mpsc::Sender<NetworkEvent> {
@@ -138,32 +220,78 @@ async fn create_incident(pool: &PgPool, event: &NetworkEvent) -> Result<()> {
             .unwrap_or_default()
     );
 
-    sqlx::query(
+    let id: i64 = sqlx::query_scalar(
         r#"
         INSERT INTO incidents (
             created_at,
+            updated_at,
             severity,
             status,
             title,
             asset_id,
-            description
+            description,
+            assigned_to,
+            mitre_id,
+            mitre_name
         )
         VALUES (
+            NOW(),
             NOW(),
             $1,
             'open',
             $2,
             $3,
-            $4
+            $4,
+            NULL,
+            $5,
+            $6
         )
+        RETURNING id
         "#,
     )
     .bind(event.severity.as_deref().unwrap_or("HIGH"))
     .bind(&title)
     .bind("PLC-01")
     .bind(&description)
-    .execute(pool)
-    .await?;
+    .bind(&event.mitre_id)
+    .bind(&event.mitre_name)
+    .fetch_one(pool)
+    .await
+    .context("Failed to insert incident")?;
+
+    let mut timeline = vec![
+        format!("Unknown device discovered ({})", event.source_ip),
+        format!(
+            "PLC connection established ({}:{})",
+            event.destination_ip, event.destination_port
+        ),
+    ];
+
+    if let Some(modbus) = &event.modbus {
+        if modbus.is_write {
+            timeline.push(format!("Write register command ({})", modbus.function_name));
+        } else {
+            timeline.push(format!("Modbus command ({})", modbus.function_name));
+        }
+    } else if let Some(opcua) = &event.opcua {
+        timeline.push(format!("OPC UA {}", opcua.message_type));
+    }
+
+    timeline.push("Security alert generated".to_string());
+    timeline.push("Incident opened".to_string());
+
+    for message in timeline {
+        sqlx::query(
+            r#"
+            INSERT INTO incident_events (incident_id, time, message)
+            VALUES ($1, NOW(), $2)
+            "#,
+        )
+        .bind(id)
+        .bind(message)
+        .execute(pool)
+        .await?;
+    }
 
     Ok(())
 }

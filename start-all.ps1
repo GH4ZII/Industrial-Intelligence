@@ -104,6 +104,13 @@ Start-AppWindow "factory-simulator" (Join-Path $Root "simulators\factory-simulat
 Start-Sleep -Seconds 1
 Start-AppWindow "alerts" (Join-Path $Root "services\alerts") "cargo run"
 Start-AppWindow "security-monitor" (Join-Path $Root "services\security-monitor") "cargo run -- --demo"
+Start-AppWindow "anomaly-engine" (Join-Path $Root "ml") @"
+if (-not (Test-Path '.venv')) {
+  python -m venv .venv
+  .\.venv\Scripts\python -m pip install -r requirements.txt
+}
+.\.venv\Scripts\python -m anomaly_engine
+"@
 Start-AppWindow "backend" (Join-Path $Root "apps\backend") "cargo run"
 Start-AppWindow "frontend" (Join-Path $Root "apps\frontend") "npx next dev --port 3001"
 
