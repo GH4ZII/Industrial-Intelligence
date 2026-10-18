@@ -1,10 +1,10 @@
 # Industrial Intelligence
 
-Plattform for overvåking av industrielle systemer og OT-miljøer. Samler sanntidsdata fra maskiner og sensorer, oppdager unormal oppførsel, og gir operatører oversikt over både produksjon og cybersikkerhet.
+Overvåkingsplattform for industri og OT-miljøer. Den samler sanntidsdata fra maskiner, viser anleggshelse i et dashboard, lager alarmer ved unormal drift, og overvåker samtidig OT-nettverket for mistenkelig aktivitet mot PLS-er.
 
-Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, maritim sektor eller kritisk infrastruktur.
+Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, maritim sektor eller kritisk infrastruktur — der produksjon og cybersikkerhet må ses sammen.
 
-## Hva systemet gjør
+---
 
 - Innhenter telemetri via MQTT, Modbus TCP og OPC UA
 - Prosesserer sanntids- og historiske sensordata
@@ -16,12 +16,14 @@ Målet er programvare som kunne brukes i norsk industri, energi, olje/gass, mari
 
 ## Arkitektur
 
+Tjenestene er løst koblet. Ingest, alarmer og pakkeanalyse er egne prosesser som kommuniserer via MQTT og databasen.
+
 ```text
-PLS / simulatorer / sensorer
+Virtuell fabrikk (simulator)
+        │  MQTT hvert sekund
+        ▼
+   Mosquitto (broker)
         │
-        ├── Modbus TCP
-        ├── OPC UA
-        └── MQTT
         ▼
  Industrial Gateway → Message Broker (MQTT)
         │
@@ -33,6 +35,18 @@ PLS / simulatorer / sensorer
                     │
               Prometheus / Grafana
 ```
+
+**Simulator** publiserer JSON på topics som `factory/trondheim/pump/P101/telemetry`.
+
+**Ingestion** abonnerer på `factory/trondheim/+/+/telemetry` og skriver til TimescaleDB.
+
+**Alarm engine** poller siste verdier og lager WARNING / CRITICAL ved terskelbrudd (temperatur, vibrasjon, trykk, RPM-avvik).
+
+**Security monitor** fanger nettverkstrafikk eller kjører syntetisk demo. Ukjent IP som sender Modbus Write mot PLS-subnet flagges som HIGH og kan opprette en incident.
+
+**Backend** er et REST-API mot dashboardet: sites, assets, telemetri, alarmer, security events, incidents, samt register/login med roller (admin / operator).
+
+---
 
 ## Tech stack
 
