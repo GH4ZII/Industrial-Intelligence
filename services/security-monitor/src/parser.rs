@@ -87,5 +87,7 @@ pub fn parse_packet(data: &[u8]) -> Option<NetworkEvent> {
         suspicious: false,
         severity: None,
         message: None,
+        mitre_id: None,
+        mitre_name: None,
     })
 }

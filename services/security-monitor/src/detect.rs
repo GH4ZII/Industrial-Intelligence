@@ -21,7 +21,7 @@ pub fn handle_event(mut event: NetworkEvent, tx: &mpsc::Sender<NetworkEvent>) {
     }
 }
 
-fn enrich_suspicion(event: &mut NetworkEvent) {
+pub fn enrich_suspicion(event: &mut NetworkEvent) {
     let from_unknown = !TRUSTED_SOURCES.iter().any(|ip| *ip == event.source_ip)
         && !event.source_ip.starts_with("127.")
         && event.source_ip != "::1";
@@ -37,6 +37,8 @@ fn enrich_suspicion(event: &mut NetworkEvent) {
                 "Unauthorized Modbus Write ({}) from {} to {}",
                 modbus.function_name, event.source_ip, event.destination_ip
             ));
+            event.mitre_id = Some("T0831".to_string());
+            event.mitre_name = Some("Manipulation of Control".to_string());
             return;
         }
 
@@ -47,6 +49,8 @@ fn enrich_suspicion(event: &mut NetworkEvent) {
                 "Modbus write observed: {} → {} ({})",
                 event.source_ip, event.destination_ip, modbus.function_name
             ));
+            event.mitre_id = Some("T0831".to_string());
+            event.mitre_name = Some("Manipulation of Control".to_string());
             return;
         }
     }
@@ -58,6 +62,8 @@ fn enrich_suspicion(event: &mut NetworkEvent) {
             "OPC UA activity from unknown source {}",
             event.source_ip
         ));
+        event.mitre_id = Some("T0867".to_string());
+        event.mitre_name = Some("Lateral Tool Transfer".to_string());
     }
 }
 
@@ -82,6 +88,14 @@ fn print_event(event: &NetworkEvent) {
             println!();
             println!("Function:");
             println!("{}", modbus.function_name);
+        }
+        if let Some(mitre_id) = &event.mitre_id {
+            println!();
+            println!("MITRE ICS:");
+            println!(
+                "{mitre_id} – {}",
+                event.mitre_name.as_deref().unwrap_or("Unknown")
+            );
         }
         println!("--------------------------------");
     } else {
@@ -118,14 +132,32 @@ pub async fn run_demo_loop(tx: mpsc::Sender<NetworkEvent>) {
     }
 }
 
-fn demo_modbus_read() -> NetworkEvent {
+fn empty_event() -> NetworkEvent {
     NetworkEvent {
         timestamp: Utc::now(),
+        source_ip: String::new(),
+        destination_ip: String::new(),
+        source_port: 0,
+        destination_port: 0,
+        transport_protocol: "TCP".to_string(),
+        application_protocol: None,
+        payload_size: 0,
+        modbus: None,
+        opcua: None,
+        suspicious: false,
+        severity: None,
+        message: None,
+        mitre_id: None,
+        mitre_name: None,
+    }
+}
+
+fn demo_modbus_read() -> NetworkEvent {
+    NetworkEvent {
         source_ip: "192.168.10.30".to_string(),
         destination_ip: "192.168.10.10".to_string(),
         source_port: 55100,
         destination_port: 502,
-        transport_protocol: "TCP".to_string(),
         application_protocol: Some("Modbus TCP".to_string()),
         payload_size: 12,
         modbus: Some(ModbusEvent {
@@ -135,21 +167,16 @@ fn demo_modbus_read() -> NetworkEvent {
             function_name: "Read Holding Registers".to_string(),
             is_write: false,
         }),
-        opcua: None,
-        suspicious: false,
-        severity: None,
-        message: None,
+        ..empty_event()
     }
 }
 
 fn demo_modbus_unauthorized_write() -> NetworkEvent {
     NetworkEvent {
-        timestamp: Utc::now(),
         source_ip: "192.168.10.92".to_string(),
         destination_ip: "192.168.10.10".to_string(),
         source_port: 49812,
         destination_port: 502,
-        transport_protocol: "TCP".to_string(),
         application_protocol: Some("Modbus TCP".to_string()),
         payload_size: 17,
         modbus: Some(ModbusEvent {
@@ -159,29 +186,44 @@ fn demo_modbus_unauthorized_write() -> NetworkEvent {
             function_name: "Write Multiple Registers".to_string(),
             is_write: true,
         }),
-        opcua: None,
-        suspicious: false,
-        severity: None,
-        message: None,
+        ..empty_event()
     }
 }
 
 fn demo_opcua() -> NetworkEvent {
     NetworkEvent {
-        timestamp: Utc::now(),
         source_ip: "192.168.10.40".to_string(),
         destination_ip: "192.168.10.10".to_string(),
         source_port: 52010,
         destination_port: 4840,
-        transport_protocol: "TCP".to_string(),
         application_protocol: Some("OPC UA".to_string()),
         payload_size: 64,
-        modbus: None,
         opcua: Some(OpcUaEvent {
             message_type: "HEL".to_string(),
         }),
-        suspicious: false,
-        severity: None,
-        message: None,
+        ..empty_event()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unauthorized_modbus_write_is_high_and_maps_t0831() {
+        let mut event = demo_modbus_unauthorized_write();
+        enrich_suspicion(&mut event);
+        assert!(event.suspicious);
+        assert_eq!(event.severity.as_deref(), Some("HIGH"));
+        assert_eq!(event.mitre_id.as_deref(), Some("T0831"));
+        assert_eq!(event.mitre_name.as_deref(), Some("Manipulation of Control"));
+    }
+
+    #[test]
+    fn trusted_hmi_read_is_not_suspicious() {
+        let mut event = demo_modbus_read();
+        enrich_suspicion(&mut event);
+        assert!(!event.suspicious);
+        assert!(event.mitre_id.is_none());
     }
 }

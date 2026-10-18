@@ -4,6 +4,38 @@ use std::time::Duration;
 use tokio::time;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
+fn database_url() -> String {
+    std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://industrial:industrial123@localhost:5432/industrial_intelligence"
+            .to_string()
+    })
+}
+
+fn mqtt_host() -> String {
+    std::env::var("MQTT_HOST").unwrap_or_else(|_| "localhost".to_string())
+}
+
+fn mqtt_port() -> u16 {
+    std::env::var("MQTT_PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(1883)
+}
+
+async fn connect_db() -> PgPool {
+    let url = database_url();
+    for attempt in 1..=30 {
+        match PgPoolOptions::new().max_connections(5).connect(&url).await {
+            Ok(pool) => return pool,
+            Err(error) => {
+                eprintln!("TimescaleDB connect attempt {attempt}/30 failed: {error}");
+                time::sleep(Duration::from_secs(2)).await;
+            }
+        }
+    }
+    panic!("Failed to connect to TimescaleDB");
+}
+
 
 #[derive(Debug, Deserialize)]
 struct PumpTelemetry {
@@ -90,19 +122,12 @@ async fn insert_metric(
 async fn main() {
     println!("Starting Industrial Intelligence Ingestion Service...");
 
-    let database_url =
-    "postgres://industrial:industrial123@localhost:5432/industrial_intelligence";
-
-let pool = PgPoolOptions::new()
-    .max_connections(5)
-    .connect(database_url)
-    .await
-    .expect("Failed to connect to TimescaleDB");
+    let pool = connect_db().await;
 
 println!("Connected to TimescaleDB.");
 
     let mut mqtt_options =
-        MqttOptions::new("ingestion-service", "localhost", 1883);
+        MqttOptions::new("ingestion-service", mqtt_host(), mqtt_port());
 
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 

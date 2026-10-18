@@ -1,3 +1,6 @@
+x-db-url: &db-url
+  DATABASE_URL: postgres://industrial:industrial123@timescaledb:5432/industrial_intelligence
+
 services:
   mqtt:
     image: eclipse-mosquitto:2
@@ -25,6 +28,115 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
+
+  ingestion:
+    build: ./services/ingestion
+    container_name: industrial-ingestion
+    environment:
+      <<: *db-url
+      MQTT_HOST: mqtt
+      MQTT_PORT: "1883"
+    depends_on:
+      mqtt:
+        condition: service_started
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  factory-simulator:
+    build: ./simulators/factory-simulator
+    container_name: industrial-simulator
+    environment:
+      MQTT_HOST: mqtt
+      MQTT_PORT: "1883"
+    depends_on:
+      mqtt:
+        condition: service_started
+      ingestion:
+        condition: service_started
+    restart: unless-stopped
+
+  alerts:
+    build: ./services/alerts
+    container_name: industrial-alerts
+    environment:
+      <<: *db-url
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  security-monitor:
+    build: ./services/security-monitor
+    container_name: industrial-security-monitor
+    environment:
+      <<: *db-url
+    command: ["security-monitor", "--demo"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ml-service:
+    build: ./ml
+    container_name: industrial-ml
+    environment:
+      <<: *db-url
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build: ./apps/backend
+    container_name: industrial-backend
+    environment:
+      <<: *db-url
+    ports:
+      - "3000:3000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3000
+    container_name: industrial-frontend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: industrial-prometheus
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: industrial-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: industrial
+      GF_USERS_DEFAULT_THEME: dark
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
 volumes:
   timescale-data:
